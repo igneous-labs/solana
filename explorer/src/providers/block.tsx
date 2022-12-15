@@ -1,8 +1,16 @@
 import React from "react";
 import * as Sentry from "@sentry/react";
 import * as Cache from "providers/cache";
-import { Connection, PublicKey, VersionedBlockResponse } from "@solana/web3.js";
+import {
+  Connection,
+  LAMPORTS_PER_SOL,
+  MessageV0,
+  PublicKey,
+  VersionedBlockResponse,
+  VersionedMessage,
+} from "@solana/web3.js";
 import { useCluster, Cluster } from "./cluster";
+import { ConsumeEventsPermissionedDetailsCard } from "components/instruction/serum/ConsumeEventsPermissionedDetails";
 
 export enum FetchStatus {
   Fetching,
@@ -58,6 +66,43 @@ export function useBlock(key: number): Cache.CacheEntry<Block> | undefined {
   return context.entries[key];
 }
 
+async function _fetchBlock(
+  connectionUrl: string,
+  slot: number
+): Promise<VersionedBlockResponse> {
+  const endpointUrl = `${window.location.protocol}//${window.location.host}/api/getBlock`;
+  let block: VersionedBlockResponse = await fetch(endpointUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      connection: connectionUrl,
+      block: slot,
+    }),
+  }).then((res) => res.json());
+
+  for (let tx of block.transactions) {
+    let meta = tx.meta;
+    // Deserialize pubkeys in meta
+    if (meta) {
+      let loadedAddresses = meta.loadedAddresses;
+      if (loadedAddresses) {
+        loadedAddresses.writable = loadedAddresses.writable.map(
+          (key) => new PublicKey(key)
+        );
+        loadedAddresses.readonly = loadedAddresses.readonly.map(
+          (key) => new PublicKey(key)
+        );
+      }
+    }
+    // Deserialize transaction message
+    let message = VersionedMessage.deserialize(
+      tx.transaction.message as any as Buffer
+    );
+    tx.transaction.message = message;
+  }
+  return block;
+}
+
 export async function fetchBlock(
   dispatch: Dispatch,
   url: string,
@@ -76,9 +121,8 @@ export async function fetchBlock(
 
   try {
     const connection = new Connection(url, "confirmed");
-    const block = await connection.getBlock(slot, {
-      maxSupportedTransactionVersion: 0,
-    });
+
+    const block = await _fetchBlock(url, slot);
     if (block === null) {
       data = {};
       status = FetchStatus.Fetched;
