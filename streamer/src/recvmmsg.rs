@@ -95,8 +95,9 @@ pub fn recv_mmsg(sock: &UdpSocket, packets: &mut [Packet]) -> io::Result</*num p
         tv_sec: 1,
         tv_nsec: 0,
     };
+    #[allow(clippy::useless_conversion)]
     let nrecv =
-        unsafe { libc::recvmmsg(sock_fd, &mut hdrs[0], count as u32, MSG_WAITFORONE, &mut ts) };
+        unsafe { libc::recvmmsg(sock_fd, &mut hdrs[0], count as u32, MSG_WAITFORONE.try_into().unwrap(), &mut ts) };
     let nrecv = if nrecv < 0 {
         return Err(io::Error::last_os_error());
     } else {
