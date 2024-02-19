@@ -203,10 +203,25 @@ impl PrioritizationFee {
         self.transaction_fees.first().copied()
     }
 
+    fn get_percentile(fees: &[u64], percentile: u16) -> Option<u64> {
+        let index = (percentile as usize).min(9_999) * fees.len() / 10_000;
+        fees.get(index).copied()
+    }
+
+    pub fn get_transaction_fee(&self, percentile: u16) -> Option<u64> {
+        Self::get_percentile(&self.transaction_fees, percentile)
+    }
+
     pub fn get_min_writable_account_fee(&self, key: &Pubkey) -> Option<u64> {
         self.writable_account_fees
             .get(key)
             .and_then(|fees| fees.first().copied())
+    }
+
+    pub fn get_writable_account_fee(&self, key: &Pubkey, percentile: u16) -> Option<u64> {
+        self.writable_account_fees
+            .get(key)
+            .and_then(|fees| Self::get_percentile(fees, percentile))
     }
 
     pub fn get_writable_account_fees(&self) -> impl Iterator<Item = (&Pubkey, &Vec<u64>)> {
