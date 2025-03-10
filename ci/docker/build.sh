@@ -24,4 +24,4 @@ docker build "${platform[@]}" \
   --build-arg "GRCOV_VERSION=${CI_DOCKER_ARG_GRCOV_VERSION}" \
   -t "$CI_DOCKER_IMAGE" .
 
-docker push "$CI_DOCKER_IMAGE"
+#docker push "$CI_DOCKER_IMAGE"
