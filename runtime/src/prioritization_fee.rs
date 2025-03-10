@@ -1,5 +1,5 @@
 use {
-    solana_measure::measure_us,
+    solana_measure::measure_time,
     solana_sdk::{clock::Slot, pubkey::Pubkey, saturating_add_assign},
     std::collections::HashMap,
 };
@@ -155,7 +155,7 @@ pub struct PrioritizationFee {
 impl PrioritizationFee {
     /// Update self for minimum transaction fee in the block and minimum fee for each writable account.
     pub fn update(&mut self, transaction_fee: u64, writable_accounts: Vec<Pubkey>) {
-        let (_, update_time) = measure!(
+        let (_, update_time) = measure_time!(
             {
                 if !self.is_finalized {
                     self.transaction_fees.push(transaction_fee);
@@ -174,26 +174,11 @@ impl PrioritizationFee {
                     self.metrics
                         .increment_attempted_update_on_finalized_fee_count(1);
                 }
-
-                for write_account in writable_accounts {
-                    self.min_writable_account_fees
-                        .entry(write_account)
-                        .and_modify(|write_lock_fee| {
-                            *write_lock_fee = std::cmp::min(*write_lock_fee, transaction_fee)
-                        })
-                        .or_insert(transaction_fee);
-                }
-
-                self.metrics
-                    .accumulate_total_prioritization_fee(transaction_fee);
-                self.metrics.update_prioritization_fee(transaction_fee);
-            } else {
-                self.metrics
-                    .increment_attempted_update_on_finalized_fee_count(1);
-            }
+            },
+            "update_time",
         );
 
-        self.metrics.accumulate_total_update_elapsed_us(update_us);
+        self.metrics.accumulate_total_update_elapsed_us(update_time.as_us());
     }
 
     pub fn mark_block_completed(&mut self) -> Result<(), PrioritizationFeeError> {
